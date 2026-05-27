@@ -15,7 +15,7 @@ const PROJECTS: Project[] = [
     tags: ["Next.js", "TypeScript", "WebGL"],
     year: "2024",
     image:
-      "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=1200&auto=format&fit=crop",
+      "",
   },
   {
     id: "2",
@@ -46,20 +46,10 @@ const PROJECTS: Project[] = [
 export function Projects() {
   return (
     <section className="mb-32">
-      <div className="border-b border-slate-100 pb-4 mb-12">
-        <h2 className="font-mono text-[10px] uppercase tracking-[0.3em] text-slate-400 font-bold">
-          Selected Works
-        </h2>
-      </div>
-
       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-16">
-        {PROJECTS.map((project, idx) => (
-          <motion.div
+        {PROJECTS.map((project) => (
+          <div
             key={project.id}
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ delay: idx * 0.1 }}
             className="group"
           >
             <div className="aspect-[4/3] overflow-hidden bg-slate-100 mb-6 relative">
@@ -83,7 +73,7 @@ export function Projects() {
                 {project.year}
               </div>
             </div>
-          </motion.div>
+          </div>
         ))}
       </div>
     </section>

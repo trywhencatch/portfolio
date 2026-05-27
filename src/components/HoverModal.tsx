@@ -29,7 +29,6 @@ export function HoverModal({ children, content }: HoverModalProps) {
           >
             {/* Pointer triangle */}
             <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-white border-b border-r border-slate-100 transform rotate-45" />
-            
             <div className="relative z-10 text-sm text-slate-600 font-sans">
               {content}
             </div>
