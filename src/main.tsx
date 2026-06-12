@@ -4,8 +4,7 @@ import './index.css';
 import Home from './app/home/Home.tsx';
 import { createBrowserRouter, RouterProvider } from 'react-router';
 import { Art } from './app/art/Art.tsx';
-import ArtWave from './app/art-2/ArtWave.tsx';
-
+import ArtParent from './components/pages/art-dark/ArtParent.tsx';
 
 const router = createBrowserRouter([
     {
@@ -14,11 +13,9 @@ const router = createBrowserRouter([
         children: [
             { path: '/', element: <Home /> },
             { path: '/art', element: <Art /> },
-            { path: '/art-2', element: <ArtWave /> },
+            { path: '/art-dark', element: <ArtParent /> },
         ],
     },
 ]);
 
-createRoot(document.getElementById('root')!).render(
-        <RouterProvider router={router} />
-);
+createRoot(document.getElementById('root')!).render(<RouterProvider router={router} />);

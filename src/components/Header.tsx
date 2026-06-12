@@ -20,7 +20,7 @@ export function Header() {
                     beautiful, feel great to use, and run blazing fast.
                 </p>
                 <div className="text-md text-slate-600 max-w-2xl leading-relaxed mb-[10px]">
-                    Reach out to me at{' '} 
+                    Reach out to me at{' '}
                     <a
                         href="https://x.com/prasan_mishra"
                         target="_blank"
@@ -32,8 +32,8 @@ export function Header() {
                     and check my work at{' '}
                     <HoverModal
                         content={
-                            <a className="p-2" href={"https://github.com/trywhencatch"} >
-                                <span className='mb-[10px] font-medium flex '>
+                            <a className="p-2" href={'https://github.com/trywhencatch'}>
+                                <span className="mb-[10px] font-medium flex ">
                                     Github Contributions
                                 </span>
                                 <GitHubCalendar

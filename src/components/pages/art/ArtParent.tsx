@@ -1,10 +1,4 @@
-import { useEffect } from 'react';
-
-type ProcessedPixelData = {
-    r: number;
-    g: number;
-    b: number;
-};
+import { useEffect, useRef, useState } from 'react';
 
 type RenderConfig = {
     sampleSize: number;
@@ -12,54 +6,18 @@ type RenderConfig = {
     whiteCutoff: number;
 };
 
-// Expanded palette for great contrast dynamic range
-const CHAR_PALETTE = ['.', '·', '"', '!', ':', '*', '^', '%', '+', '%', '#', '@', 'G'];
-
 const HIDDEN_CANVAS_STYLE = {
-    display: "none",
+    display: 'none',
     height: '400px',
     width: '400px',
 };
 
-const getPixelBrightness = (pixel: ProcessedPixelData): number => {
-    return 0.299 * pixel.r + 0.587 * pixel.g + 0.114 * pixel.b;
-};
-
-const getGlyphDetails = (brightness: number) => {
-    const normalizedInverted = 1 - brightness / 255;
-
-    const paletteIndex = Math.min(
-        Math.floor(normalizedInverted * CHAR_PALETTE.length),
-        CHAR_PALETTE.length - 1
-    );
-
-    const char = CHAR_PALETTE[paletteIndex];
-
-    let color = 'rgb(130, 185, 240)';
-    if (paletteIndex > 8) {
-        color = 'rgb(30, 120, 200)'; // Adjusted tiers slightly to account for longer palette length
-    } else if (paletteIndex > 4) {
-        color = 'rgb(70, 150, 225)';
-    }
-
-    return { char, color };
-};
-
-const initializeOutputCanvas = (
-    ctx: CanvasRenderingContext2D,
-    width: number,
-    height: number,
-    config: RenderConfig
-) => {
+const initializeOutputCanvas = (ctx: CanvasRenderingContext2D, width: number, height: number) => {
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, width, height);
-
-    ctx.font = `bold ${config.sampleSize * config.scaleFactor}px monospace`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
 };
 
-const renderAsciiGrid = (
+const renderHalftoneGrid = (
     srcData: Uint8ClampedArray,
     imgWidth: number,
     imgHeight: number,
@@ -68,101 +26,210 @@ const renderAsciiGrid = (
 ) => {
     const { sampleSize, scaleFactor, whiteCutoff } = config;
 
+    const blockSize = sampleSize * scaleFactor;
+
     for (let y = 0; y < imgHeight; y += sampleSize) {
         for (let x = 0; x < imgWidth; x += sampleSize) {
             const index = (y * imgWidth + x) * 4;
 
-            const pixel: ProcessedPixelData = {
-                r: srcData[index],
-                g: srcData[index + 1],
-                b: srcData[index + 2],
-            };
+            const r = srcData[index];
+            const g = srcData[index + 1];
+            const b = srcData[index + 2];
 
-            const brightness = getPixelBrightness(pixel);
+            const brightness = 0.299 * r + 0.587 * g + 0.114 * b;
 
-            if (brightness > whiteCutoff) continue;
+            if (brightness > whiteCutoff) {
+                continue;
+            }
 
-            const { char, color } = getGlyphDetails(brightness);
+            const darkness = 1 - brightness / 255;
 
-            const outX = x * scaleFactor + (sampleSize * scaleFactor) / 2;
-            const outY = y * scaleFactor + (sampleSize * scaleFactor) / 2;
+            const level = Math.floor(darkness * 5);
 
-            outCtx.fillStyle = color;
-            outCtx.fillText(char, outX, outY);
+            let shouldDraw = false;
+
+            switch (level) {
+                case 4:
+                    shouldDraw = true;
+                    break;
+
+                case 3:
+                    shouldDraw = (x + y) % 2 === 0;
+                    break;
+
+                case 2:
+                    shouldDraw = x % 2 === 0;
+                    break;
+
+                case 1:
+                    shouldDraw = (x + y) % 4 === 0;
+                    break;
+
+                default:
+                    shouldDraw = false;
+            }
+
+            if (!shouldDraw) continue;
+
+            outCtx.fillStyle = '#000';
+
+            outCtx.fillRect(x * scaleFactor, y * scaleFactor, blockSize, blockSize);
         }
     }
 };
 
 const ArtParent = () => {
+    const [config, setConfig] = useState<RenderConfig>({
+        sampleSize: 6,
+        scaleFactor: 2,
+        whiteCutoff: 255,
+    });
+
+    const imageRef = useRef<HTMLImageElement | null>(null);
+
     useEffect(() => {
         const image = new Image();
-        image.src = '/assets/flower.jpg';
 
-        const imageCanvas = document.getElementById('temp_image_canvas') as HTMLCanvasElement;
-        const outputCanvas = document.getElementById('output_image_canvas') as HTMLCanvasElement;
+        image.src = '/assets/image.jpg';
 
-        image.addEventListener('load', () => {
-            if (!imageCanvas || !outputCanvas) return;
-
-            const config: RenderConfig = {
-                sampleSize: 6,
-                scaleFactor: 2,
-                whiteCutoff: 240,
-            };
-
-            imageCanvas.width = image.width;
-            imageCanvas.height = image.height;
-            const srcCtx = imageCanvas.getContext('2d');
-            if (!srcCtx) throw new Error('Source canvas context missing');
-
-            srcCtx.drawImage(image, 0, 0);
-            const rawImageData = srcCtx.getImageData(
-                0,
-                0,
-                imageCanvas.width,
-                imageCanvas.height
-            ).data;
-
-            outputCanvas.width = image.width * config.scaleFactor;
-            outputCanvas.height = image.height * config.scaleFactor;
-            const outCtx = outputCanvas.getContext('2d');
-            if (!outCtx) throw new Error('Output canvas context missing');
-
-            initializeOutputCanvas(outCtx, outputCanvas.width, outputCanvas.height, config);
-
-            renderAsciiGrid(rawImageData, image.width, image.height, outCtx, config);
-        });
+        image.onload = () => {
+            imageRef.current = image;
+            renderImage(image, config);
+        };
     }, []);
 
-    return (
-        <div style={{ display: 'flex', padding: '20px', backgroundColor: '#ffffff', minHeight: '100vh', alignItems: 'center' }}>
-            
-            {/* Injecting CSS keyframes directly into the document head */}
-            <style>{`
-                @keyframes slow-spin {
-                    from {
-                        transform: rotate(0deg);
-                    }
-                    to {
-                        transform: rotate(360deg);
-                    }
-                }
-                .rotating-canvas {
-                    animation: slow-spin 40s linear infinite;
-                }
-            `}</style>
+    useEffect(() => {
+        if (imageRef.current) {
+            renderImage(imageRef.current, config);
+        }
+    }, [config]);
 
-            <canvas id="temp_image_canvas" style={HIDDEN_CANVAS_STYLE}></canvas>
-            
+    const renderImage = (image: HTMLImageElement, renderConfig: RenderConfig) => {
+        const imageCanvas = document.getElementById('temp_image_canvas') as HTMLCanvasElement;
+
+        const outputCanvas = document.getElementById('output_image_canvas') as HTMLCanvasElement;
+
+        if (!imageCanvas || !outputCanvas) return;
+
+        imageCanvas.width = image.width;
+        imageCanvas.height = image.height;
+
+        const srcCtx = imageCanvas.getContext('2d');
+
+        if (!srcCtx) {
+            throw new Error('Source canvas context missing');
+        }
+
+        srcCtx.clearRect(0, 0, imageCanvas.width, imageCanvas.height);
+
+        srcCtx.drawImage(image, 0, 0);
+
+        const rawImageData = srcCtx.getImageData(0, 0, imageCanvas.width, imageCanvas.height).data;
+
+        outputCanvas.width = image.width * renderConfig.scaleFactor;
+
+        outputCanvas.height = image.height * renderConfig.scaleFactor;
+
+        const outCtx = outputCanvas.getContext('2d');
+
+        if (!outCtx) {
+            throw new Error('Output canvas context missing');
+        }
+
+        initializeOutputCanvas(outCtx, outputCanvas.width, outputCanvas.height);
+
+        renderHalftoneGrid(rawImageData, image.width, image.height, outCtx, renderConfig);
+    };
+
+    return (
+        <div
+            style={{
+                display: 'flex',
+                flexDirection: 'column',
+                padding: '20px',
+                backgroundColor: '#ffffff',
+                minHeight: '100vh',
+                gap: '20px',
+            }}
+        >
+            <div
+                style={{
+                    display: 'flex',
+                    gap: '24px',
+                    flexWrap: 'wrap',
+                    alignItems: 'center',
+                    padding: '16px',
+                    border: '1px solid #ddd',
+                    borderRadius: '12px',
+                }}
+            >
+                <div>
+                    <label>White Cutoff</label>
+                    <br />
+                    <input
+                        type="range"
+                        min={0}
+                        max={255}
+                        value={config.whiteCutoff}
+                        onChange={(e) =>
+                            setConfig((prev) => ({
+                                ...prev,
+                                whiteCutoff: Number(e.target.value),
+                            }))
+                        }
+                    />
+                    <div>{config.whiteCutoff}</div>
+                </div>
+
+                <div>
+                    <label>Sample Size</label>
+                    <br />
+                    <input
+                        type="range"
+                        min={2}
+                        max={12}
+                        value={config.sampleSize}
+                        onChange={(e) =>
+                            setConfig((prev) => ({
+                                ...prev,
+                                sampleSize: Number(e.target.value),
+                            }))
+                        }
+                    />
+                    <div>{config.sampleSize}</div>
+                </div>
+
+                <div>
+                    <label>Scale Factor</label>
+                    <br />
+                    <input
+                        type="range"
+                        min={1}
+                        max={6}
+                        step={0.5}
+                        value={config.scaleFactor}
+                        onChange={(e) =>
+                            setConfig((prev) => ({
+                                ...prev,
+                                scaleFactor: Number(e.target.value),
+                            }))
+                        }
+                    />
+                    <div>{config.scaleFactor}</div>
+                </div>
+            </div>
+
+            <canvas id="temp_image_canvas" style={HIDDEN_CANVAS_STYLE} />
+
             <canvas
                 id="output_image_canvas"
-                className="rotating-canvas"
                 style={{
-                    height: '800px',
-                    width: '800px',
-                    margin: "0 auto"
+                    height: '600px',
+                    width: 'auto',
+                    margin: '0 auto',
+                    background: '#fff',
                 }}
-            ></canvas>
+            />
         </div>
     );
 };
